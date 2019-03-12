@@ -67,9 +67,13 @@ function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, ne
         if i==5 % potassium rectifier
             close_to_open_rate = 0.01.*(state_vars(:,1)+44)./(1-exp(-(state_vars(:,1)+44)./5));
             open_to_close_rate = 0.17.*exp(-(state_vars(:,1)+49)./40);
+            equi_state = close_to_open_rate./(close_to_open_rate + open_to_close_rate);
+            time_constant = 1./(close_to_open_rate + open_to_close_rate);
         elseif i==8 % calcium-dependent potassium
             close_to_open_rate = 1.25*10^8.*state_vars(:,end).^2; 
             open_to_close_rate = 2.5;
+            equi_state = close_to_open_rate./(close_to_open_rate + open_to_close_rate);
+            time_constant = 1000./(close_to_open_rate + open_to_close_rate);
         else
             equi_state = 1./(1+exp(-(state_vars(:,1)+params(i,1))./params(i,2)));
             if ~isnan(params(i,3))
@@ -77,16 +81,17 @@ function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, ne
             else
                 time_constant = repmat(params(i,4), num_of_neurons, 1);
             end
-            close_to_open_rate = equi_state./time_constant; 
-            open_to_close_rate = - close_to_open_rate + 1./time_constant;
         end
-        delta_state_vars(:,i+1) = (1-state_vars(:,i+1)).*close_to_open_rate - state_vars(:,i+1).*open_to_close_rate;
+        delta_state_vars(:, i+1) = (equi_state - state_vars(:, i+1))./time_constant; 
+        if any(isnan(delta_state_vars(:, i+1))) || any(isinf(delta_state_vars(:, i+1)))
+            pause(1);
+        end
     end
     
     % Intracellular calcium concentration
     buffering_prob = 0.03./(state_vars(:, end) + 0.03 + 0.001);
     delta_state_vars(:, end) = 5.18*10^(-8).*(1-buffering_prob)...
-        .*g_cal.*state_vars(:,7).*state_vars(:,8).*(state_vars(:,1)-E_ca) ...
+        .*10^(-15)*g_cal.*state_vars(:,7).*state_vars(:,8).*(state_vars(:,1)-E_ca) ...
         + (5*10^(-5)-state_vars(:, end))./500;
     
     % Leave the voltage update to the caller

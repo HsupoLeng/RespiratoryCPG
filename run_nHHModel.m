@@ -1,8 +1,8 @@
 clc;
 
-% Experiment parameters. Time are all in second
-dt = 0.1;
-T = 60;
+% Experiment parameters. Time are all in ms
+dt = 100;
+T = 60*10^3;
 N = 50; % Number of neurons per population
 M = 10; % Number of state variables per neuron
 
@@ -48,7 +48,7 @@ neuron_pops(6).drive_weights = [2, 0, 0]';
 neuron_pops(7).drive_weights = [1.7, 0, 0]';
 drive_weights_all_pop_cell = {neuron_pops(:).drive_weights}';
 
-sim_time_step = 0.001;
+sim_time_step = 1;
 for t = 0:dt:T
     ts = t:sim_time_step:t+dt;
     voltage_all_pop_snapshot = zeros(length(ts), length(neuron_pops), N);
@@ -57,13 +57,13 @@ for t = 0:dt:T
             delta_state_vars = sim_unifm_HH_pop(ts(i), state_vars_all_pop_cell{j}, spikes_all_pop, ...
                 synaptic_weights_all_pop_cell{j}, external_drives_all_pop_cell{j}, ...
                 drive_weights_all_pop_cell{j}, neuron_codes{j}, N);
-            if any(isnan(delta_state_vars))
-                pause(1);
-            end
             delta_state_vars = reshape(delta_state_vars, N, []);
             state_vars_all_pop_cell{j} = squeeze(state_vars_all_pop_cell{j}) ...
                 + delta_state_vars.*sim_time_step;
-            voltage_all_pop_snapshot(i, j, :) = delta_state_vars(:, 1); 
+            if any(isinf(state_vars_all_pop_cell{j}(:))) || any(isnan(state_vars_all_pop_cell{j}(:))) 
+                pause(1);
+            end
+            voltage_all_pop_snapshot(i, j, :) = state_vars_all_pop_cell{j}(:, 1); 
         end
     end
 V = y(:,    1:N );

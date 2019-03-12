@@ -22,16 +22,17 @@ function [delta_state_vars] = sim_unifm_HH_pop(t, state_vars, spikes, synaptic_w
 
 
 % Constant Parameters
-C  = 0.036;    % capacitance (in nF)
+C  = 36;    % capacitance (in pF)
 
 state_vars = reshape(state_vars, num_of_neurons, []);
 [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, neuron_code);
 
 % Compute exitatory and inhibitory synaptic current for neurons in the
 % population. Identical for each neuron
-% Time constants are in second
-time_constant_syn_ext = 5*10^(-3); 
-time_constant_syn_inh = 15*10^(-3);
+% Time constants are in ms
+% Voltages are in mV
+time_constant_syn_ext = 5; 
+time_constant_syn_inh = 15;
 g_ext = 1.0; g_inh = g_ext; g_ext_dr = g_ext; g_inh_dr = g_ext; 
 E_syn_ext = 0;
 E_syn_inh = -75;
