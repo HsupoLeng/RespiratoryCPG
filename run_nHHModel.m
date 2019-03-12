@@ -18,6 +18,9 @@ neuron_pops(7).name = 'early_I_2'; neuron_pops(7).code = 7;
 neuron_codes = {neuron_pops(:).code}';
 
 state_vars_all_pop = rand(length(neuron_pops), N, M);
+state_vars_all_pop(:, :, 1) = state_vars_all_pop(:, :, 1) - 60;
+state_vars_all_pop(:, :, 2:end) = state_vars_all_pop(:, :, 2:end) * 0.3;
+state_vars_all_pop(:, :, end) = state_vars_all_pop(:, :, end) .* 10^(-5);
 state_vars_all_pop_cell = num2cell(state_vars_all_pop, [2,3]);
 
 spikes_all_pop = cell(length(neuron_pops), 1);
@@ -48,7 +51,7 @@ neuron_pops(6).drive_weights = [2, 0, 0]';
 neuron_pops(7).drive_weights = [1.7, 0, 0]';
 drive_weights_all_pop_cell = {neuron_pops(:).drive_weights}';
 
-sim_time_step = 1;
+sim_time_step = 0.01;
 for t = 0:dt:T
     ts = t:sim_time_step:t+dt;
     voltage_all_pop_snapshot = zeros(length(ts), length(neuron_pops), N);
@@ -66,12 +69,24 @@ for t = 0:dt:T
             voltage_all_pop_snapshot(i, j, :) = state_vars_all_pop_cell{j}(:, 1); 
         end
     end
-V = y(:,    1:N );
-m = y(:,  N+1:2*N);
-n = y(:,2*N+1:3*N);
-h = y(:,3*N+1:4*N);
-plot(t,V)
-loc findpeak(V)
+    
+    % Example: visualize all neurons' acitivities in pre_I population
+    figure(1);
+    clf; 
+    hold on;
+    for i=1:size(voltage_all_pop_snapshot, 3)
+        plot(voltage_all_pop_snapshot(:, 4, i));
+    end
+    hold off;
+    pause(1);
+    %{
+        V = y(:,    1:N );
+        m = y(:,  N+1:2*N);
+        n = y(:,2*N+1:3*N);
+        h = y(:,3*N+1:4*N);
+        plot(t,V)
+        loc findpeak(V)
+    %}
 
 % Save t_peak
 

@@ -64,18 +64,23 @@ function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, ne
               52.4, 5.2, nan, 18; ...
               nan, nan, nan, nan];
     for i=1:size(params, 1)
+        if i == 2 || i==4 || i == 7 % For the h's, we need to invert the sign in the formula for their equilibrium values
+            is_close_gate = true;
+        else 
+            is_close_gate = false;
+        end
         if i==5 % potassium rectifier
             close_to_open_rate = 0.01.*(state_vars(:,1)+44)./(1-exp(-(state_vars(:,1)+44)./5));
             open_to_close_rate = 0.17.*exp(-(state_vars(:,1)+49)./40);
             equi_state = close_to_open_rate./(close_to_open_rate + open_to_close_rate);
             time_constant = 1./(close_to_open_rate + open_to_close_rate);
         elseif i==8 % calcium-dependent potassium
-            close_to_open_rate = 1.25*10^8.*state_vars(:,end).^2; 
+            close_to_open_rate = 1.25*10^8.*(state_vars(:,end).^2); 
             open_to_close_rate = 2.5;
             equi_state = close_to_open_rate./(close_to_open_rate + open_to_close_rate);
             time_constant = 1000./(close_to_open_rate + open_to_close_rate);
         else
-            equi_state = 1./(1+exp(-(state_vars(:,1)+params(i,1))./params(i,2)));
+            equi_state = 1./(1+exp(((-1)^(1+is_close_gate)).*(state_vars(:,1)+params(i,1))./params(i,2)));
             if ~isnan(params(i,3))
                 time_constant = params(i,4)./cosh((state_vars(:,1)+params(i,1))./params(i,3));
             else
