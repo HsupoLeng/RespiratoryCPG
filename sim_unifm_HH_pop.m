@@ -39,11 +39,11 @@ E_syn_inh = -75;
 synaptic_weights = num2cell(synaptic_weights)';
 g_synExts_elems_cell = cellfun(@(spike_tlocs, synaptic_w) exp(-(t - spike_tlocs)./time_constant_syn_ext).*max(synaptic_w, 0), ...
     spikes, synaptic_weights, 'UniformOutput', false);
-g_synExts_elems = g_synExts_elems_cell{:};
+g_synExts_elems = horzcat(g_synExts_elems_cell{:});
 I_synExt = (g_ext.*sum(g_synExts_elems) + g_ext_dr*max(drive_weights, 0)'*external_drives).*(state_vars(:,1)-E_syn_ext);
 I_synInhs_elems_cell = cellfun(@(spike_tlocs, synaptic_w) exp(-(t - spike_tlocs)./time_constant_syn_inh).*max(-synaptic_w, 0), ...
     spikes, synaptic_weights, 'UniformOutput', false);
-I_synInhs_elems = I_synInhs_elems_cell{:};
+I_synInhs_elems = horzcat(I_synInhs_elems_cell{:});
 I_synInh = (g_inh.*sum(I_synInhs_elems) + g_inh_dr*max(-drive_weights, 0)'*external_drives).*(state_vars(:,1)-E_syn_inh);
 delta_state_vars(:,1) = -(I_ionic + I_synExt + I_synInh)./C;
 end

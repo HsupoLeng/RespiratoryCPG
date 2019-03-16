@@ -2,7 +2,7 @@ clc;
 
 % Experiment parameters. Time are all in ms
 dt = 100;
-T = 60*10^3;
+T = 40*10^3;
 sim_time_segment_seq = 0:dt:T;
 N = 50; % Number of neurons per population
 M = 10; % Number of state variables per neuron
@@ -107,7 +107,7 @@ for segment_ind=1:length(sim_time_segment_seq)
     end
     spike_times_all_neuron_history(segment_ind, :, :) = spike_times_all_neuron_cell;
     activity_avg_rate_all_pop(segment_ind, :) = cellfun(@length, spike_times_all_pop_cell).*(1000/dt)./N;
-    toc;
+    fprintf('Iteration %d: ', segment_ind);toc;
     % Example: visualize all neurons' acitivities in pre_I population
     %{
     figure(1);
