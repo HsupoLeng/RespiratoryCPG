@@ -3,6 +3,7 @@ clc;
 % Experiment parameters. Time are all in ms
 dt = 100;
 T = 60*10^3;
+sim_time_segment_seq = 0:dt:T;
 N = 50; % Number of neurons per population
 M = 10; % Number of state variables per neuron
 
@@ -22,8 +23,12 @@ state_vars_all_pop(:, :, 1) = state_vars_all_pop(:, :, 1) - 60;
 state_vars_all_pop(:, :, 2:end) = state_vars_all_pop(:, :, 2:end) * 0.3;
 state_vars_all_pop(:, :, end) = state_vars_all_pop(:, :, end) .* 10^(-5);
 state_vars_all_pop_cell = num2cell(state_vars_all_pop, [2,3]);
+state_vars_all_pop_cell = cellfun(@squeeze, state_vars_all_pop_cell, ...
+    'UniformOutput', false);
 
-spikes_all_pop = cell(length(neuron_pops), 1);
+spike_times_all_pop_cell = cell(length(neuron_pops), 1);
+spike_times_all_neuron_history = cell(length(sim_time_segment_seq), length(neuron_pops), N);
+activity_avg_rate_all_pop = zeros(length(sim_time_segment_seq), length(neuron_pops));
 
 % Synaptic weights correspond to the sequence in neuron_pops definition
 neuron_pops(1).synaptic_weights = [0, -0.32, 0, 0, -0.115, 0, 0];
@@ -51,26 +56,60 @@ neuron_pops(6).drive_weights = [2, 0, 0]';
 neuron_pops(7).drive_weights = [1.7, 0, 0]';
 drive_weights_all_pop_cell = {neuron_pops(:).drive_weights}';
 
-sim_time_step = 0.01;
-for t = 0:dt:T
-    ts = t:sim_time_step:t+dt;
+sim_time_step = 0.01; % Time step 0.01ms
+for segment_ind=1:length(sim_time_segment_seq)
+    segment_start_t = sim_time_segment_seq(segment_ind);
+    ts = segment_start_t:sim_time_step:segment_start_t+dt;
+    ts = ts(1:end-1);
     voltage_all_pop_snapshot = zeros(length(ts), length(neuron_pops), N);
+    tic;
     for i=1:length(ts)
+        t = ts(i);
         for j=1:length(neuron_pops)
-            delta_state_vars = sim_unifm_HH_pop(ts(i), state_vars_all_pop_cell{j}, spikes_all_pop, ...
+            delta_state_vars = sim_unifm_HH_pop(t, state_vars_all_pop_cell{j}, spike_times_all_pop_cell, ...
                 synaptic_weights_all_pop_cell{j}, external_drives_all_pop_cell{j}, ...
                 drive_weights_all_pop_cell{j}, neuron_codes{j}, N);
-            delta_state_vars = reshape(delta_state_vars, N, []);
-            state_vars_all_pop_cell{j} = squeeze(state_vars_all_pop_cell{j}) ...
+ 
+            state_vars_all_pop_cell{j} = state_vars_all_pop_cell{j} ...
                 + delta_state_vars.*sim_time_step;
-            if any(isinf(state_vars_all_pop_cell{j}(:))) || any(isnan(state_vars_all_pop_cell{j}(:))) 
-                pause(1);
-            end
+
             voltage_all_pop_snapshot(i, j, :) = state_vars_all_pop_cell{j}(:, 1); 
         end
+        
+        %Alternative cell array implementation: (not much acceleration...
+        %{     
+        sim_unifm_HH_pop_wrapper = @(state_vars, synaptic_weights, external_drives, ...
+            drive_weights, neuron_code, num_neuron) ...
+            sim_unifm_HH_pop(t, state_vars, spike_times_all_pop_cell, synaptic_weights, ...
+            external_drives, drive_weights, neuron_code, num_neuron);
+        delta_state_vars_cell = cellfun(sim_unifm_HH_pop_wrapper, ...
+            state_vars_all_pop_cell, synaptic_weights_all_pop_cell, ...
+            external_drives_all_pop_cell, drive_weights_all_pop_cell, ...
+            neuron_codes, num2cell(N.*ones(size(neuron_pops)))', ...
+            'UniformOutput', false);
+        delta_state_vars_cell = cellfun(@times, delta_state_vars_cell, ...
+            num2cell(sim_time_step.*ones(size(delta_state_vars_cell))), ...
+            'UniformOutput', false);
+        state_vars_all_pop_cell = cellfun(@plus, state_vars_all_pop_cell, ...
+            delta_state_vars_cell, 'UniformOutput', false);
+        for j=1:length(state_vars_all_pop_cell)
+            voltage_all_pop_snapshot(i, j, :) = state_vars_all_pop_cell{j}(:, 1);
+        end
+        %}
     end
     
+    voltage_all_pop_snapshot_cell = num2cell(voltage_all_pop_snapshot, 1);
+    [~, spike_time_inds_cell] = cellfun(@findpeaks, voltage_all_pop_snapshot_cell, 'UniformOutput', false);
+    spike_times_all_neuron_cell = cellfun(@(t_inds) ts(t_inds), spike_time_inds_cell, 'UniformOutput', false);
+    spike_times_all_neuron_cell = squeeze(spike_times_all_neuron_cell);
+    for i=1:size(spike_times_all_neuron_cell, 1)
+        spike_times_all_pop_cell{i} = cell2mat(spike_times_all_neuron_cell(i, :));
+    end
+    spike_times_all_neuron_history(segment_ind, :, :) = spike_times_all_neuron_cell;
+    activity_avg_rate_all_pop(segment_ind, :) = cellfun(@length, spike_times_all_pop_cell).*(1000/dt)./N;
+    toc;
     % Example: visualize all neurons' acitivities in pre_I population
+    %{
     figure(1);
     clf; 
     hold on;
@@ -78,16 +117,5 @@ for t = 0:dt:T
         plot(voltage_all_pop_snapshot(:, 4, i));
     end
     hold off;
-    pause(1);
-    %{
-        V = y(:,    1:N );
-        m = y(:,  N+1:2*N);
-        n = y(:,2*N+1:3*N);
-        h = y(:,3*N+1:4*N);
-        plot(t,V)
-        loc findpeak(V)
     %}
-
-% Save t_peak
-
 end
