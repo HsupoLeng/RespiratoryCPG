@@ -1,11 +1,12 @@
 clc;
 
 % Experiment parameters. Time are all in ms
-dt = 100;
-T = 40*10^3;
+dt = 30;
+T = 4*10^3;
 sim_time_segment_seq = 0:dt:T;
 N = 50; % Number of neurons per population
 M = 10; % Number of state variables per neuron
+warning('off', 'signal:findpeaks:largeMinPeakHeight');
 
 % Structure of the breathing CPG
 neuron_pops = struct();
@@ -20,7 +21,9 @@ neuron_codes = {neuron_pops(:).code}';
 
 state_vars_all_pop = rand(length(neuron_pops), N, M);
 state_vars_all_pop(:, :, 1) = state_vars_all_pop(:, :, 1) - 60;
-state_vars_all_pop(:, :, 2:end) = state_vars_all_pop(:, :, 2:end) * 0.3;
+state_vars_all_pop(:, :, [2,4,6,7,9]) = state_vars_all_pop(:, :, [2,4,6,7,9]) .* 0.3;
+state_vars_all_pop(:, :, [3, 8]) = max(state_vars_all_pop(:, :, [3, 8]), 0.4);
+state_vars_all_pop(:, :, 5) = min(state_vars_all_pop(:, :, 5), 0.1);
 state_vars_all_pop(:, :, end) = state_vars_all_pop(:, :, end) .* 10^(-5);
 state_vars_all_pop_cell = num2cell(state_vars_all_pop, [2,3]);
 state_vars_all_pop_cell = cellfun(@squeeze, state_vars_all_pop_cell, ...
@@ -36,14 +39,14 @@ neuron_pops(2).synaptic_weights = [-0.01, 0, 0, 0, -0.04, 0, 0];
 neuron_pops(3).synaptic_weights = [-0.15, 0, 0, 0, -0.2, 0, 0];
 neuron_pops(4).synaptic_weights = [-0.025, -0.225, 0, 0.03, 0, 0, 0];
 neuron_pops(5).synaptic_weights = [-0.145, -0.4, 0, 0.034, 0, 0, 0];
-neuron_pops(6).synaptic_weights = [-2, -1, 0, 0.06, 0, 0, 0];
+neuron_pops(6).synaptic_weights = [-2, -1, 0, 0.06, 0, 0, -0.275];
 neuron_pops(7).synaptic_weights = [-0.25, -1, 0, 0, 0, 0, 0];
 synaptic_weights_all_pop_cell = {neuron_pops(:).synaptic_weights}';
 
 % External drives and their weights are in the sequence of:
 % pons, RTN_to_BotC, pre_BotC
 for i=1:length(neuron_pops)
-    neuron_pops(i).external_drives = ones(3, 1);
+    neuron_pops(i).external_drives = 2.*ones(3, 1);
 end
 external_drives_all_pop_cell = {neuron_pops(:).external_drives}';
 
@@ -72,6 +75,8 @@ for segment_ind=1:length(sim_time_segment_seq)
  
             state_vars_all_pop_cell{j} = state_vars_all_pop_cell{j} ...
                 + delta_state_vars.*sim_time_step;
+            
+            state_vars_all_pop_cell{j}(:, 4) = min(state_vars_all_pop_cell{j}(:, 4), 1);
 
             voltage_all_pop_snapshot(i, j, :) = state_vars_all_pop_cell{j}(:, 1); 
         end
@@ -99,7 +104,7 @@ for segment_ind=1:length(sim_time_segment_seq)
     end
     
     voltage_all_pop_snapshot_cell = num2cell(voltage_all_pop_snapshot, 1);
-    [~, spike_time_inds_cell] = cellfun(@findpeaks, voltage_all_pop_snapshot_cell, 'UniformOutput', false);
+    [~, spike_time_inds_cell] = cellfun(@(v) findpeaks(v, 'minpeakheight', -30), voltage_all_pop_snapshot_cell, 'UniformOutput', false);
     spike_times_all_neuron_cell = cellfun(@(t_inds) ts(t_inds), spike_time_inds_cell, 'UniformOutput', false);
     spike_times_all_neuron_cell = squeeze(spike_times_all_neuron_cell);
     for i=1:size(spike_times_all_neuron_cell, 1)
