@@ -34,7 +34,7 @@ state_vars = reshape(state_vars, num_of_neurons, []);
 time_constant_syn_ext = 5; 
 time_constant_syn_inh = 15;
 g_ext = 1.0; g_inh = g_ext; g_ext_dr = g_ext; g_inh_dr = g_ext; 
-E_syn_ext = -10;
+E_syn_ext = 0;
 E_syn_inh = -75;
 synaptic_weights = num2cell(synaptic_weights)';
 g_synExts_elems_cell = cellfun(@(spike_tlocs, synaptic_w) exp(-(t - spike_tlocs)./time_constant_syn_ext).*max(synaptic_w, 0), ...

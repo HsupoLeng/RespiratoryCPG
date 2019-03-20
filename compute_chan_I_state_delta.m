@@ -53,9 +53,6 @@ function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, ne
         g_kca.*state_vars(:,9).^2.*(state_vars(:,1)-E_k) + ...
         g_l.*(state_vars(:,1)-E_l);
     
-    if neuron_code == 4 && (any(state_vars(:, 4)>1) || any(state_vars(:, 4)>1))
-        pause(1)
-    end
     % Ion gating state transfer variables 
     delta_state_vars = zeros(size(state_vars));
     params = [43.8, 6, 14, 0.252, g_na; ...
@@ -85,9 +82,6 @@ function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, ne
             open_to_close_rate = 2.5;
             equi_state = close_to_open_rate./(close_to_open_rate + open_to_close_rate);
             time_constant = 1000./(close_to_open_rate + open_to_close_rate);
-        %elseif i==4 % NaP inactivation gate
-        %    equi_state = 1./(1+exp(((-1)^(1+is_close_gate)).*(state_vars(:,1)+params(i,1))./params(i,2)));
-        %    time_constant = params(i,4)./(cosh((state_vars(:,1)+params(i,1)))./params(i,3));
         else
             equi_state = 1./(1+exp(((-1)^(1+is_close_gate)).*(state_vars(:,1)+params(i,1))./params(i,2)));
             if ~isnan(params(i,3))
