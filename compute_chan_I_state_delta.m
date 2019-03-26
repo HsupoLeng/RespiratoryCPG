@@ -1,4 +1,4 @@
-function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, neuron_code)
+function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, E_l, neuron_code)
 % compute_ion_channel_I(state_vars, neuron_type) computes total inherent
 % membrane channel current, and infinitesimal change in all state variables
 % for N neurons in a population, except the membrane voltage
@@ -35,15 +35,9 @@ function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, ne
         g_l = 6.0;
     end
     % Reversal potentials in mV
-    rng(neuron_code);
     E_na = 55;
     E_k = -94;
     E_ca = 13.27.*log(4./state_vars(:, end));
-    if neuron_code == 4 % population pre_I
-        E_l = -68 + 1.36.*randn(num_of_neurons, 1);
-    else
-        E_l = -60 + 1.2.*randn(num_of_neurons, 1);
-    end
 
     % Total ionic current (N-by-1 column vector)
     I_ionic = g_na.*state_vars(:,2).^3.*state_vars(:,3).*(state_vars(:,1)-E_na) + ...

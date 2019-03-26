@@ -1,8 +1,8 @@
 clc;
 
 % Experiment parameters. Time are all in ms
-sim_time_step = 0.01; % Time step 0.01ms
-T = 3*10^3;
+sim_time_step = 0.1; % Time step 0.01ms
+T = 30*10^3;
 sim_time_seq = 0:sim_time_step:T;
 N = 50; % Number of neurons per population
 M = 10; % Number of state variables per neuron
@@ -62,20 +62,36 @@ neuron_pops(5).drive_weights = [1.1, 0.7, 0]';
 neuron_pops(6).drive_weights = [2, 0, 0]';
 neuron_pops(7).drive_weights = [1.7, 0, 0]';
 drive_weights_all_pop_cell = {neuron_pops(:).drive_weights}';
+
+% Leakage reversal potentials
+for i=1:length(neuron_pops)
+    rng(neuron_pops(i).code);
+    if i==4
+        E_l = -68 + 1.36.*randn(N, 1);
+    else
+        E_l = -60 + 1.2.*randn(N, 1);
+    end
+    neuron_pops(i).leakage_voltages = E_l;
+end
+leakage_voltages_all_pop_cell = {neuron_pops(:).leakage_voltages}';
+pool = gcp('nocreate');
+delete(pool);
+parpool('local');
 tic;
 for i=1:length(sim_time_seq)
     t = sim_time_seq(i);
-    for j=1:length(neuron_pops)
-        delta_state_vars = sim_unifm_HH_pop(t, state_vars_all_pop_cell{j}, spike_times_all_pop_cell, ...
-            synaptic_weights_all_pop_cell{j}, external_drives_all_pop_cell{j}, ...
-            drive_weights_all_pop_cell{j}, neuron_codes{j}, N);
-        
-        state_vars_all_pop_cell{j} = state_vars_all_pop_cell{j} ...
-            + delta_state_vars.*sim_time_step;
-       
-        state_vars_all_pop_cell{j}(:, 4) = min(state_vars_all_pop_cell{j}(:, 4), 1);
-        state_vars_all_pop_cell{j}(:, 5) = min(state_vars_all_pop_cell{j}(:, 5), 1);
 
+    parfor j=1:length(neuron_pops)        
+        [ts, state_vars_at_ts] = ode15s(@(t, state_vars) sim_unifm_HH_pop(t, state_vars, spike_times_all_pop_cell, ...
+            synaptic_weights_all_pop_cell{j}, external_drives_all_pop_cell{j}, ...
+            drive_weights_all_pop_cell{j}, leakage_voltages_all_pop_cell{j}, ...
+            neuron_codes{j}, N), t:0.01:t+sim_time_step, ...
+            state_vars_all_pop_cell{j});
+       
+        state_vars_all_pop_cell{j} = reshape(state_vars_at_ts(end, :), N, []);
+        %state_vars_all_pop_cell{j}(:, 4) = max(min(state_vars_all_pop_cell{j}(:, 4), 1), 0);
+        %state_vars_all_pop_cell{j}(:, 5) = max(min(state_vars_all_pop_cell{j}(:, 5), 1), 0);
+        
         spike_trains_all_neuron_history(i, j, :) = state_vars_all_pop_cell{j}(:, 1); 
     end
     
@@ -83,11 +99,12 @@ for i=1:length(sim_time_seq)
     if mod(i, 2/sim_time_step)
         continue;
     end
+    
     spike_search_window = max(1, i-(30/sim_time_step)):i;
     if length(spike_search_window) < 3
         spike_times_new_all_neuron_cell = cell(size(spike_times_all_neuron_history_cell));
     else
-        spike_trains_all_neuron_cell = num2cell(spike_trains_all_neuron_history(spike_search_window, :, :), 1);
+        spike_trains_all_neuron_cell = squeeze(num2cell(spike_trains_all_neuron_history(spike_search_window, :, :), 1));
         [~, spike_time_inds_cell] = cellfun(@(v) findpeaks(v, 'MinPeakHeight', -20, 'MinPeakProminence', 30), spike_trains_all_neuron_cell, 'UniformOutput', false);
         spike_time_inds_cell = squeeze(spike_time_inds_cell);
         spike_times_all_neuron_cell = cellfun(@(t_inds) sim_time_seq(min(spike_search_window)-1 + t_inds), spike_time_inds_cell, 'UniformOutput', false);
@@ -99,11 +116,11 @@ for i=1:length(sim_time_seq)
     for k=1:size(spike_times_all_neuron_history_cell, 1)
         spike_times_all_pop_cell{k} = cell2mat(spike_times_all_neuron_history_cell(k, :));
     end
-    %activity_avg_rate_all_pop(segment_ind, :) = cellfun(@length, spike_times_all_pop_cell).*(1000/dt)./N;
-    %fprintf('Iteration %d: ', segment_ind);toc;
+   
     % Example: visualize all neurons' acitivities in pre_I population
-    %{
+    
     if ~mod(i, 50/sim_time_step) 
+        toc;
         figure(1);
         clf; 
         hold on;
@@ -111,8 +128,10 @@ for i=1:length(sim_time_seq)
             plot(spike_trains_all_neuron_history(i-(50/sim_time_step)+1:i, 4, k));
         end
         hold off;
+        fprintf('Now at %f second\n', t/1000);
+        tic;
     end
-    %}
+    
 end
 toc;
 figure(1);
