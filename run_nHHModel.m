@@ -77,7 +77,6 @@ leakage_voltages_all_pop_cell = {neuron_pops(:).leakage_voltages}';
 pool = gcp('nocreate');
 delete(pool);
 parpool('local');
-tic;
 for i=1:length(sim_time_seq)
     t = sim_time_seq(i);
 
@@ -87,8 +86,16 @@ for i=1:length(sim_time_seq)
             drive_weights_all_pop_cell{j}, leakage_voltages_all_pop_cell{j}, ...
             neuron_codes{j}, N), t:0.01:t+sim_time_step, ...
             state_vars_all_pop_cell{j});
-       
         state_vars_all_pop_cell{j} = reshape(state_vars_at_ts(end, :), N, []);
+        %{
+        delta_state_vars = sim_unifm_HH_pop(t, state_vars_all_pop_cell{j}, spike_times_all_pop_cell, ...
+            synaptic_weights_all_pop_cell{j}, external_drives_all_pop_cell{j}, ...
+            drive_weights_all_pop_cell{j}, leakage_voltages_all_pop_cell{j}, ...
+            neuron_codes{j}, N)
+        delta_state_vars = reshape(delta_state_vars, N, []);
+        state_vars_all_pop_cell{j} = state_vars_all_pop_cell{j} + ...
+            delta_state_vars.*sim_time_step;
+        %}
         %state_vars_all_pop_cell{j}(:, 4) = max(min(state_vars_all_pop_cell{j}(:, 4), 1), 0);
         %state_vars_all_pop_cell{j}(:, 5) = max(min(state_vars_all_pop_cell{j}(:, 5), 1), 0);
         
@@ -118,9 +125,8 @@ for i=1:length(sim_time_seq)
     end
    
     % Example: visualize all neurons' acitivities in pre_I population
-    
+    %{
     if ~mod(i, 50/sim_time_step) 
-        toc;
         figure(1);
         clf; 
         hold on;
@@ -129,9 +135,8 @@ for i=1:length(sim_time_seq)
         end
         hold off;
         fprintf('Now at %f second\n', t/1000);
-        tic;
     end
-    
+    %}
 end
 toc;
 figure(1);

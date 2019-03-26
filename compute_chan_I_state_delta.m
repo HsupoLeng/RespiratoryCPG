@@ -18,12 +18,24 @@ function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, E_
     num_of_neurons = size(state_vars, 1);
     % Maximal conductances in nS
     g_na = 0; g_nap = g_na; g_k = g_na; g_cal = g_na; g_kca = g_na; g_l = g_na;
-    if neuron_code == 4 % population pre_I
+    if neuron_code == 1 % poulation aug_E
+        g_na = 400;
+        g_k = 250;
+        g_cal = 0.05;
+        g_kca = 3.0;
+        g_l = 6.0;
+    elseif neuron_code == 4 % population pre_I
         g_na = 170;
         g_nap = 5.0; 
         g_k = 180;
         g_l = 2.5;
-    elseif neuron_code == 2 % population post_I
+    elseif neuron_code == 5 % population early_I_1
+        g_na = 400;
+        g_k = 250;
+        g_cal = 0.05;
+        g_kca = 3.5;
+        g_l = 6.0;
+    elseif neuron_code == 6 % population ramp_I
         g_na = 400;
         g_k = 250;
         g_l = 6.0;
@@ -31,7 +43,7 @@ function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, E_
         g_na = 400;
         g_k = 250;
         g_cal = 0.05;
-        g_kca = 3.0;
+        g_kca = 6.0;
         g_l = 6.0;
     end
     % Reversal potentials in mV
@@ -75,7 +87,20 @@ function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, E_
             close_to_open_rate = 1.25*10^8.*(state_vars(:,end).^2); 
             open_to_close_rate = 2.5;
             equi_state = close_to_open_rate./(close_to_open_rate + open_to_close_rate);
-            time_constant = 1000./(close_to_open_rate + open_to_close_rate);
+            if neuron_code==1
+                kca_time_constant_scale = 8.0;
+            elseif neuron_code==2
+                kca_time_constant_scale = 6.0;
+            elseif neuron_code==3
+                kca_time_constant_scale = 0.1;
+            elseif neuron_code==5 
+                kca_time_constant_scale = 8.0;
+            elseif neuron_code==7
+                kca_time_constant_scale = 2.0; 
+            else 
+                kca_time_constant_scale = nan;
+            end
+            time_constant = kca_time_constant_scale.*1000./(close_to_open_rate + open_to_close_rate);
         else
             equi_state = 1./(1+exp(((-1)^(1+is_close_gate)).*(state_vars(:,1)+params(i,1))./params(i,2)));
             if ~isnan(params(i,3))
@@ -89,7 +114,7 @@ function [I_ionic, delta_state_vars] = compute_chan_I_state_delta(state_vars, E_
     
     % Intracellular calcium concentration
     buffering_prob = 0.03./(state_vars(:, end) + 0.03 + 0.001);
-    delta_state_vars(:, end) = 2*10^(-5).*(1-buffering_prob)...
+    delta_state_vars(:, end) = - 2*10^(-5).*(1-buffering_prob)...
         .*10^(-15)*g_cal.*state_vars(:,7).*state_vars(:,8).*(state_vars(:,1)-E_ca) ...
         + (5*10^(-5)-state_vars(:, end))./250;
     
