@@ -46,7 +46,62 @@ I_synInhs_elems = exp(-(t - all_spikes_arr)./time_constant_syn_inh).*synaptic_we
 I_synExt = (g_ext.*sum(g_synExts_elems) + g_ext_dr*max(drive_weights, 0)'*external_drives).*(state_vars(:,1)-E_syn_ext);
 I_synInh = (g_inh.*sum(I_synInhs_elems) + g_inh_dr*max(-drive_weights, 0)'*external_drives).*(state_vars(:,1)-E_syn_inh);
 
-delta_state_vars(:,1) = -(I_ionic + I_synExt + I_synInh)./C;
+% Alternative method of solving membrane voltage ODE: exponential Euler
+% method
+g_na = 0; g_nap = g_na; g_k = g_na; g_cal = g_na; g_kca = g_na; g_l = g_na;
+if neuron_code == 1 % poulation aug_E
+    g_na = 400;
+    g_k = 250;
+    g_cal = 0.05;
+    g_kca = 3.0;
+    g_l = 6.0;
+elseif neuron_code == 4 % population pre_I
+    g_na = 170;
+    g_nap = 5.0; 
+    g_k = 180;
+    g_l = 2.5;
+elseif neuron_code == 5 % population early_I_1
+    g_na = 400;
+    g_k = 250;
+    g_cal = 0.05;
+    g_kca = 3.5;
+    g_l = 6.0;
+elseif neuron_code == 6 % population ramp_I
+    g_na = 400;
+    g_k = 250;
+    g_l = 6.0;
+else
+    g_na = 400;
+    g_k = 250;
+    g_cal = 0.05;
+    g_kca = 6.0;
+    g_l = 6.0;
+end
+% Reversal potentials in mV
+E_na = 55;
+E_k = -94;
+E_ca = 13.27.*log(4./state_vars(:, end));
+g_total = g_na.*state_vars(:,2).^3.*state_vars(:,3) + ...
+        g_nap.*state_vars(:,4).*state_vars(:,5) + ...
+        g_k.*state_vars(:,6).^4 + ...
+        g_cal.*state_vars(:,7).*state_vars(:,8) + ...
+        g_kca.*state_vars(:,9).^2 + ...
+        g_l + ...
+        g_ext.*sum(g_synExts_elems) + ...
+        g_ext_dr*max(drive_weights, 0)'*external_drives + ...
+        g_inh.*sum(I_synInhs_elems) + ...
+        g_inh_dr*max(-drive_weights, 0)'*external_drives;
+act = g_na.*state_vars(:,2).^3.*state_vars(:,3).*E_na + ...
+        g_nap.*state_vars(:,4).*state_vars(:,5).*E_na + ...
+        g_k.*state_vars(:,6).^4.*E_k + ...
+        g_cal.*state_vars(:,7).*state_vars(:,8).*E_ca + ...
+        g_kca.*state_vars(:,9).^2.*E_k + ...
+        g_l.*leakage_voltages + ...
+        (g_ext.*sum(g_synExts_elems) + g_ext_dr*max(drive_weights, 0)'*external_drives).*E_syn_ext + ...
+        (g_inh.*sum(I_synInhs_elems) + g_inh_dr*max(-drive_weights, 0)'*external_drives).*E_syn_inh;
+z = exp(-0.01*g_total);
+delta_state_vars(:,1) = ((z-1).*state_vars(:,1) + (1-z).*act./g_total);
+%delta_state_vars(:,1) = -(I_ionic + I_synExt + I_synInh)./C;
 delta_state_vars = reshape(delta_state_vars, [], 1);
 end
 
