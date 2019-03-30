@@ -1,5 +1,5 @@
 function new_state_vars = sim_unifm_HH_pop_exp_euler(t, state_vars, spikes, synaptic_weights, external_drives, drive_weights, leakage_voltages, neuron_code, num_of_neurons, sim_time_step)
-% HHModel(t, y, I_in) computes the infinitesimal update to the state
+% sim_unifm_HH_pop_exp_euler(t, y, I_in) computes the infinitesimal update to the state
 % variables of N neurons modelled by Hudgkin-Huxley model
 %   Input: 
 %       t: timestamp, scalar;
@@ -16,9 +16,12 @@ function new_state_vars = sim_unifm_HH_pop_exp_euler(t, state_vars, spikes, syna
 %       drive_weights: weight of each drive source to this population,
 %       L-by-1 matrix. Weight is zero if no connection to the source.
 %       Weight could be either positive or negative otherwise. 
-%       neuron_type: string, neuron type to determine maximal conductance
+%       leakage_voltages: leakage voltage of each neuron in the population
+%       neuron_code: integer, neuron type to determine maximal conductance
+%       num_of_neurons: number of neurons in the population
+%       sim_time_step: simulation time step
 %   Output:
-%       delta_state_vars: infinitesimal change in the state variables
+%       new_state_vars: updated state variables
 
 
 % Constant Parameters
@@ -153,10 +156,8 @@ params = [nan, nan, nan, nan, 0; ... % This line is a place-holder
             end
         end
 
-            %close_to_open_rate = equi_state./time_constant; 
-            %open_to_close_rate = (1-equi_state)./time_constant; 
-            z = exp(-sim_time_step./time_constant);
-            new_state_vars(:,i) = state_vars(:,i).*z + equi_state.*(1-z);
+        z = exp(-sim_time_step./time_constant);
+        new_state_vars(:,i) = state_vars(:,i).*z + equi_state.*(1-z);
     end
     
 % Intracellular calcium concentration

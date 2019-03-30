@@ -32,28 +32,22 @@ state_vars_all_pop_cell = cellfun(@squeeze, state_vars_all_pop_cell, ...
 spike_times_all_pop_cell = cell(length(neuron_pops), 1);
 spike_times_all_neuron_history_cell = cell(length(neuron_pops), N);
 spike_trains_all_neuron_history = zeros(length(sim_time_seq), length(neuron_pops), N);
-%activity_avg_rate_all_pop = zeros(length(sim_time_segment_seq), length(neuron_pops));
 
 % Synaptic weights correspond to the sequence in neuron_pops definition
-neuron_pops(1).synaptic_weights = [0, -0.32, 0, 0, -0.115, 0, 0];
-%neuron_pops(1).synaptic_weights = [0, 0, 0, 0, -0.115, 0, 0];
+neuron_pops(1).synaptic_weights = [0, -0.25, 0, 0, -0.115, 0, 0];
 neuron_pops(2).synaptic_weights = [-0.01, 0, 0, 0, -0.04, 0, 0];
 neuron_pops(3).synaptic_weights = [-0.15, 0, 0, 0, -0.2, 0, 0];
 neuron_pops(4).synaptic_weights = [-0.025, -0.225, 0, 0.03, 0, 0, 0];
-%neuron_pops(4).synaptic_weights = [-0.025, 0, 0, 0.03, 0, 0, 0];
-neuron_pops(5).synaptic_weights = [-0.145, -0.4, 0, 0.034, 0, 0, 0];
-%neuron_pops(5).synaptic_weights = [-0.145, 0, 0, 0.034, 0, 0, 0];
+neuron_pops(5).synaptic_weights = [-0.07, -0.4, 0, 0.1, 0, 0, 0];
 neuron_pops(6).synaptic_weights = [-2, -1, 0, 0.06, 0, 0, -0.275];
-%neuron_pops(6).synaptic_weights = [-2, 0, 0, 0.06, 0, 0, -0.275];
 neuron_pops(7).synaptic_weights = [-0.25, -1, 0, 0, 0, 0, 0];
-%neuron_pops(7).synaptic_weights = [-0.25, 0, 0, 0, 0, 0, 0];
 synaptic_weights_all_pop_cell = {neuron_pops(:).synaptic_weights}';
 
 % External drives and their weights are in the sequence of:
 % pons, RTN_to_BotC, pre_BotC
 for i=1:length(neuron_pops)
     %neuron_pops(i).external_drives = ones(3, 1);
-    neuron_pops(i).external_drives = [1;1.5;2];
+    neuron_pops(i).external_drives = [1;1.7;1.3];
 end
 external_drives_all_pop_cell = {neuron_pops(:).external_drives}';
 
@@ -77,33 +71,11 @@ for i=1:length(neuron_pops)
     neuron_pops(i).leakage_voltages = E_l;
 end
 leakage_voltages_all_pop_cell = {neuron_pops(:).leakage_voltages}';
-%pool = gcp('nocreate');
-%delete(pool);
-%parpool('local');
+
 for i=1:length(sim_time_seq)
     t = sim_time_seq(i);
 
     for j=1:length(neuron_pops)
-        %{
-        [ts, state_vars_at_ts] = ode15s(@(t, state_vars) sim_unifm_HH_pop(t, state_vars, spike_times_all_pop_cell, ...
-            synaptic_weights_all_pop_cell{j}, external_drives_all_pop_cell{j}, ...
-            drive_weights_all_pop_cell{j}, leakage_voltages_all_pop_cell{j}, ...
-            neuron_codes{j}, N), t:0.01:t+sim_time_step, ...
-            state_vars_all_pop_cell{j});
-        state_vars_all_pop_cell{j} = reshape(state_vars_at_ts(end, :), N, []);
-        %}
-        %{
-        delta_state_vars = sim_unifm_HH_pop(t, state_vars_all_pop_cell{j}, spike_times_all_pop_cell, ...
-            synaptic_weights_all_pop_cell{j}, external_drives_all_pop_cell{j}, ...
-            drive_weights_all_pop_cell{j}, leakage_voltages_all_pop_cell{j}, ...
-            neuron_codes{j}, N);
-        delta_state_vars = reshape(delta_state_vars, N, []);
-        state_vars_all_pop_cell{j} = state_vars_all_pop_cell{j} + ...
-            delta_state_vars.*sim_time_step;
-        
-        state_vars_all_pop_cell{j}(:, 4) = max(min(state_vars_all_pop_cell{j}(:, 4), 1), 0);
-        state_vars_all_pop_cell{j}(:, 5) = max(min(state_vars_all_pop_cell{j}(:, 5), 1), 0);
-        %}
         state_vars = sim_unifm_HH_pop_exp_euler(t, state_vars_all_pop_cell{j}, spike_times_all_pop_cell, ...
             synaptic_weights_all_pop_cell{j}, external_drives_all_pop_cell{j}, ...
             drive_weights_all_pop_cell{j}, leakage_voltages_all_pop_cell{j}, ...
@@ -116,7 +88,7 @@ for i=1:length(sim_time_seq)
     % Example: visualize all neurons' acitivities in pre_I population
     if ~mod(i, 50/sim_time_step) 
         %{
-        figure(1);
+        figure();
         clf; 
         hold on;
         for k=1:size(spike_trains_all_neuron_history, 3)
@@ -152,7 +124,7 @@ for i=1:length(sim_time_seq)
     
 end
 toc;
-figure(1);
+figure();
 hold on;
 for i=1:length(neuron_pops)
     plot_neuron_ind = 1;
