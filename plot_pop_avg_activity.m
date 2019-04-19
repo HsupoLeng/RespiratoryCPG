@@ -7,10 +7,10 @@ function plot_pop_avg_activity(spike_times_all_neuron_history_cell, neuron_pops)
         x_ax_lim_for_all = max(x_ax_lim, x_ax_lim_for_all);
         ylabel(strrep(neuron_pops(neuron_codes(i)).name, '_', '-'));
         set(get(gca,'YLabel'),'Rotation',0, 'HorizontalAlignment', 'right');
-        set(gca, 'xtick', []);
-        set(gca, 'xticklabel', []);
-        set(gca, 'ytick', []);
-        set(gca, 'yticklabel', []);
+        %set(gca, 'xtick', []);
+        %set(gca, 'xticklabel', []);
+        %set(gca, 'ytick', []);
+        %set(gca, 'yticklabel', []);
         ylim([0, 100]);
         box off;
     end

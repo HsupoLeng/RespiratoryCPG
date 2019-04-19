@@ -1,140 +1,144 @@
-clc;
+function run_nHHModel(pontine_drive)
+    %clc;
+    % Experiment parameters. Time are all in ms
+    sim_time_step = 0.1; % Time step 0.1ms
+    T = 40*10^3;
+    sim_time_seq = 0:sim_time_step:T;
+    N = 50; % Number of neurons per population
+    M = 10; % Number of state variables per neuron
+    warning('off', 'signal:findpeaks:largeMinPeakHeight');
 
-% Experiment parameters. Time are all in ms
-sim_time_step = 0.1; % Time step 0.1ms
-T = 40*10^3;
-sim_time_seq = 0:sim_time_step:T;
-N = 50; % Number of neurons per population
-M = 10; % Number of state variables per neuron
-warning('off', 'signal:findpeaks:largeMinPeakHeight');
+    % Structure of the breathing CPG
+    neuron_pops = struct();
+    neuron_pops(1).name = 'aug_E'; neuron_pops(1).code = 1;
+    neuron_pops(2).name = 'post_I'; neuron_pops(2).code = 2;
+    neuron_pops(3).name = 'post_I_e'; neuron_pops(3).code = 3;
+    neuron_pops(4).name = 'pre_I'; neuron_pops(4).code = 4;
+    neuron_pops(5).name = 'early_I_1'; neuron_pops(5).code = 5;
+    neuron_pops(6).name = 'ramp_I'; neuron_pops(6).code = 6;
+    neuron_pops(7).name = 'early_I_2'; neuron_pops(7).code = 7;
+    neuron_codes = {neuron_pops(:).code}';
 
-% Structure of the breathing CPG
-neuron_pops = struct();
-neuron_pops(1).name = 'aug_E'; neuron_pops(1).code = 1;
-neuron_pops(2).name = 'post_I'; neuron_pops(2).code = 2;
-neuron_pops(3).name = 'post_I_e'; neuron_pops(3).code = 3;
-neuron_pops(4).name = 'pre_I'; neuron_pops(4).code = 4;
-neuron_pops(5).name = 'early_I_1'; neuron_pops(5).code = 5;
-neuron_pops(6).name = 'ramp_I'; neuron_pops(6).code = 6;
-neuron_pops(7).name = 'early_I_2'; neuron_pops(7).code = 7;
-neuron_codes = {neuron_pops(:).code}';
+    % Initialize state variables
+    state_vars_all_pop = rand(length(neuron_pops), N, M);
+    state_vars_all_pop(:, :, 1) = state_vars_all_pop(:, :, 1) - 70;
+    state_vars_all_pop(:, :, [2,4,6,7,9]) = min(state_vars_all_pop(:, :, [2,4,6,7,9]), 0.3);
+    state_vars_all_pop(:, :, [3,5,8]) = max(state_vars_all_pop(:, :, [3,5,8]), 0.4);
+    state_vars_all_pop(:, :, end) = state_vars_all_pop(:, :, end) .* 10^(-4);
+    state_vars_all_pop_cell = num2cell(state_vars_all_pop, [2,3]);
+    state_vars_all_pop_cell = cellfun(@squeeze, state_vars_all_pop_cell, ...
+        'UniformOutput', false);
 
-% Initialize state variables
-state_vars_all_pop = rand(length(neuron_pops), N, M);
-state_vars_all_pop(:, :, 1) = state_vars_all_pop(:, :, 1) - 70;
-state_vars_all_pop(:, :, [2,4,6,7,9]) = min(state_vars_all_pop(:, :, [2,4,6,7,9]), 0.3);
-state_vars_all_pop(:, :, [3,5,8]) = max(state_vars_all_pop(:, :, [3,5,8]), 0.4);
-state_vars_all_pop(:, :, end) = state_vars_all_pop(:, :, end) .* 10^(-4);
-state_vars_all_pop_cell = num2cell(state_vars_all_pop, [2,3]);
-state_vars_all_pop_cell = cellfun(@squeeze, state_vars_all_pop_cell, ...
-    'UniformOutput', false);
+    spike_times_all_pop_cell = cell(length(neuron_pops), 1);
+    spike_times_all_neuron_history_cell = cell(length(neuron_pops), N);
+    spike_trains_all_neuron_history = zeros(length(sim_time_seq), length(neuron_pops), N);
 
-spike_times_all_pop_cell = cell(length(neuron_pops), 1);
-spike_times_all_neuron_history_cell = cell(length(neuron_pops), N);
-spike_trains_all_neuron_history = zeros(length(sim_time_seq), length(neuron_pops), N);
+    % Synaptic weights correspond to the sequence in neuron_pops definition
+    neuron_pops(1).synaptic_weights = [0, -0.25, 0, 0, -0.115, 0, 0];
+    neuron_pops(2).synaptic_weights = [-0.01, 0, 0, 0, -0.04, 0, 0];
+    neuron_pops(3).synaptic_weights = [-0.15, 0, 0, 0, -0.2, 0, 0];
+    neuron_pops(4).synaptic_weights = [-0.025, -0.225, 0, 0.03, 0, 0, 0];
+    neuron_pops(5).synaptic_weights = [-0.07, -0.4, 0, 0.1, 0, 0, 0];
+    neuron_pops(6).synaptic_weights = [-2, -1, 0, 0.06, 0, 0, -0.275];
+    neuron_pops(7).synaptic_weights = [-0.25, -1, 0, 0, 0, 0, 0];
+    synaptic_weights_all_pop_cell = {neuron_pops(:).synaptic_weights}';
 
-% Synaptic weights correspond to the sequence in neuron_pops definition
-neuron_pops(1).synaptic_weights = [0, -0.25, 0, 0, -0.115, 0, 0];
-neuron_pops(2).synaptic_weights = [-0.01, 0, 0, 0, -0.04, 0, 0];
-neuron_pops(3).synaptic_weights = [-0.15, 0, 0, 0, -0.2, 0, 0];
-neuron_pops(4).synaptic_weights = [-0.025, -0.225, 0, 0.03, 0, 0, 0];
-neuron_pops(5).synaptic_weights = [-0.07, -0.4, 0, 0.1, 0, 0, 0];
-neuron_pops(6).synaptic_weights = [-2, -1, 0, 0.06, 0, 0, -0.275];
-neuron_pops(7).synaptic_weights = [-0.25, -1, 0, 0, 0, 0, 0];
-synaptic_weights_all_pop_cell = {neuron_pops(:).synaptic_weights}';
-
-% External drives and their weights are in the sequence of:
-% pons, RTN_to_BotC, pre_BotC
-for i=1:length(neuron_pops)
-    %neuron_pops(i).external_drives = ones(3, 1);
-    neuron_pops(i).external_drives = [1;1.7;1.3];
-end
-external_drives_all_pop_cell = {neuron_pops(:).external_drives}';
-
-neuron_pops(1).drive_weights = [0.4, 1, 0]';
-neuron_pops(2).drive_weights = [1.5, 0.1, 0]';
-neuron_pops(3).drive_weights = [1, 0.1, 0]';
-neuron_pops(4).drive_weights = [0.55, 0.13, 0.3]';
-neuron_pops(5).drive_weights = [1.1, 0.7, 0]';
-neuron_pops(6).drive_weights = [2, 0, 0]';
-neuron_pops(7).drive_weights = [1.7, 0, 0]';
-drive_weights_all_pop_cell = {neuron_pops(:).drive_weights}';
-
-% Leakage reversal potentials
-for i=1:length(neuron_pops)
-    rng(neuron_pops(i).code);
-    if i==4
-        E_l = -68 + 1.36.*randn(N, 1);
-    else
-        E_l = -60 + 1.2.*randn(N, 1);
+    % External drives and their weights are in the sequence of:
+    % pons, RTN_to_BotC, pre_BotC
+    for i=1:length(neuron_pops)
+        %neuron_pops(i).external_drives = ones(3, 1);
+        %neuron_pops(i).external_drives = [1;1.7;1.3];
+        neuron_pops(i).external_drives = [pontine_drive;1.7;1.3];
     end
-    neuron_pops(i).leakage_voltages = E_l;
-end
-leakage_voltages_all_pop_cell = {neuron_pops(:).leakage_voltages}';
+    external_drives_all_pop_cell = {neuron_pops(:).external_drives}';
 
-for i=1:length(sim_time_seq)
-    t = sim_time_seq(i);
+    neuron_pops(1).drive_weights = [0.4, 1, 0]';
+    neuron_pops(2).drive_weights = [1.5, 0.1, 0]';
+    neuron_pops(3).drive_weights = [1, 0.1, 0]';
+    neuron_pops(4).drive_weights = [0.55, 0.13, 0.3]';
+    neuron_pops(5).drive_weights = [1.1, 0.7, 0]';
+    neuron_pops(6).drive_weights = [2, 0, 0]';
+    neuron_pops(7).drive_weights = [1.7, 0, 0]';
+    drive_weights_all_pop_cell = {neuron_pops(:).drive_weights}';
 
-    for j=1:length(neuron_pops)
-        state_vars = sim_unifm_HH_pop_exp_euler(t, state_vars_all_pop_cell{j}, spike_times_all_pop_cell, ...
-            synaptic_weights_all_pop_cell{j}, external_drives_all_pop_cell{j}, ...
-            drive_weights_all_pop_cell{j}, leakage_voltages_all_pop_cell{j}, ...
-            neuron_codes{j}, N, sim_time_step);
-        state_vars_all_pop_cell{j} = reshape(state_vars, N, []);
-        
-        spike_trains_all_neuron_history(i, j, :) = state_vars_all_pop_cell{j}(:, 1); 
+    % Leakage reversal potentials
+    for i=1:length(neuron_pops)
+        rng(neuron_pops(i).code);
+        if i==4
+            E_l = -68 + 1.36.*randn(N, 1);
+        else
+            E_l = -60 + 1.2.*randn(N, 1);
+        end
+        neuron_pops(i).leakage_voltages = E_l;
     end
-    
-    % Example: visualize all neurons' acitivities in pre_I population
-    if ~mod(i, 50/sim_time_step) 
-        %{
+    leakage_voltages_all_pop_cell = {neuron_pops(:).leakage_voltages}';
+
+    for i=1:length(sim_time_seq)
+        t = sim_time_seq(i);
+
+        for j=1:length(neuron_pops)
+            state_vars = sim_unifm_HH_pop_exp_euler(t, state_vars_all_pop_cell{j}, spike_times_all_pop_cell, ...
+                synaptic_weights_all_pop_cell{j}, external_drives_all_pop_cell{j}, ...
+                drive_weights_all_pop_cell{j}, leakage_voltages_all_pop_cell{j}, ...
+                neuron_codes{j}, N, sim_time_step);
+            state_vars_all_pop_cell{j} = reshape(state_vars, N, []);
+
+            spike_trains_all_neuron_history(i, j, :) = state_vars_all_pop_cell{j}(:, 1); 
+        end
+
+        % Example: visualize all neurons' acitivities in pre_I population
+        if ~mod(i, 50/sim_time_step) 
+            %{
+            figure();
+            clf; 
+            hold on;
+            for k=1:size(spike_trains_all_neuron_history, 3)
+                plot(spike_trains_all_neuron_history(i-(50/sim_time_step)+1:i, 4, k));
+            end
+            hold off;
+            %}
+            fprintf('Now at %f second\n', t/1000);
+        end
+
+
+        % Find new spike every 1ms. Find the spike in a 10ms window
+        if mod(i, 1/sim_time_step)
+            continue;
+        end
+
+        spike_search_window = max(1, i-(10/sim_time_step)):i;
+        if length(spike_search_window) < 3
+            spike_times_new_all_neuron_cell = cell(size(spike_times_all_neuron_history_cell));
+        else
+            spike_trains_all_neuron_cell = squeeze(num2cell(spike_trains_all_neuron_history(spike_search_window, :, :), 1));
+            [~, spike_time_inds_cell] = cellfun(@(v) findpeaks(v, 'MinPeakHeight', -20, 'MinPeakProminence', 30), spike_trains_all_neuron_cell, 'UniformOutput', false);
+            spike_time_inds_cell = squeeze(spike_time_inds_cell);
+            spike_times_all_neuron_cell = cellfun(@(t_inds) sim_time_seq(min(spike_search_window)-1 + t_inds), spike_time_inds_cell, 'UniformOutput', false);
+            spike_times_new_all_neuron_cell = cellfun(@(spike_times, spike_times_history) setdiff(spike_times, spike_times_history), ...
+                spike_times_all_neuron_cell, spike_times_all_neuron_history_cell, 'UniformOutput', false);
+        end
+        spike_times_all_neuron_history_cell = cellfun(@(spike_times_history, new_spike_times) horzcat(spike_times_history, new_spike_times), ...
+            spike_times_all_neuron_history_cell, spike_times_new_all_neuron_cell, 'UniformOutput', false);
+        for k=1:size(spike_times_all_neuron_history_cell, 1)
+            spike_times_all_pop_cell{k} = cell2mat(spike_times_all_neuron_history_cell(k, :));
+        end
+    end
+    save(sprintf('spike_times_40s_1ms_findpeak_drive_%s_1dot7_1dot3.mat', ...
+        strrep(sprintf('%.2f', pontine_drive), '.', 'dot')))
+    %{
         figure();
-        clf; 
         hold on;
-        for k=1:size(spike_trains_all_neuron_history, 3)
-            plot(spike_trains_all_neuron_history(i-(50/sim_time_step)+1:i, 4, k));
+        for i=1:length(neuron_pops)
+            plot_neuron_ind = 1;
+            subplot(length(neuron_pops), 1, i);
+            spike_times = spike_times_all_neuron_history_cell{i,plot_neuron_ind};
+            plot([spike_times;spike_times], [ones(size(spike_times));zeros(size(spike_times))], 'k-');
+            ylim([-1, 2]);
+            set(gca,'TickDir','out') % draw the tick marks on the outside
+            set(gca,'YTick', []) ;
+            set(gca,'YColor',get(gcf,'Color'));
+            title(strrep(neuron_pops(i).name, '_', '-'));
         end
         hold off;
-        %}
-        fprintf('Now at %f second\n', t/1000);
-    end
-    
-    
-    % Find new spike every 1ms. Find the spike in a 10ms window
-    if mod(i, 1/sim_time_step)
-        continue;
-    end
-    
-    spike_search_window = max(1, i-(10/sim_time_step)):i;
-    if length(spike_search_window) < 3
-        spike_times_new_all_neuron_cell = cell(size(spike_times_all_neuron_history_cell));
-    else
-        spike_trains_all_neuron_cell = squeeze(num2cell(spike_trains_all_neuron_history(spike_search_window, :, :), 1));
-        [~, spike_time_inds_cell] = cellfun(@(v) findpeaks(v, 'MinPeakHeight', -20, 'MinPeakProminence', 30), spike_trains_all_neuron_cell, 'UniformOutput', false);
-        spike_time_inds_cell = squeeze(spike_time_inds_cell);
-        spike_times_all_neuron_cell = cellfun(@(t_inds) sim_time_seq(min(spike_search_window)-1 + t_inds), spike_time_inds_cell, 'UniformOutput', false);
-        spike_times_new_all_neuron_cell = cellfun(@(spike_times, spike_times_history) setdiff(spike_times, spike_times_history), ...
-            spike_times_all_neuron_cell, spike_times_all_neuron_history_cell, 'UniformOutput', false);
-    end
-    spike_times_all_neuron_history_cell = cellfun(@(spike_times_history, new_spike_times) horzcat(spike_times_history, new_spike_times), ...
-        spike_times_all_neuron_history_cell, spike_times_new_all_neuron_cell, 'UniformOutput', false);
-    for k=1:size(spike_times_all_neuron_history_cell, 1)
-        spike_times_all_pop_cell{k} = cell2mat(spike_times_all_neuron_history_cell(k, :));
-    end
-    
+    %}
 end
-toc;
-figure();
-hold on;
-for i=1:length(neuron_pops)
-    plot_neuron_ind = 1;
-    subplot(length(neuron_pops), 1, i);
-    spike_times = spike_times_all_neuron_history_cell{i,plot_neuron_ind};
-    plot([spike_times;spike_times], [ones(size(spike_times));zeros(size(spike_times))], 'k-');
-    ylim([-1, 2]);
-    set(gca,'TickDir','out') % draw the tick marks on the outside
-    set(gca,'YTick', []) ;
-    set(gca,'YColor',get(gcf,'Color'));
-    title(strrep(neuron_pops(i).name, '_', '-'));
-end
-hold off;

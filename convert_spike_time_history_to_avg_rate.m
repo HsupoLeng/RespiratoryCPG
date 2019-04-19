@@ -1,4 +1,4 @@
-function T = convert_spike_time_history_to_avg_rate(spike_times_all_neuron_one_pop)
+function [T, avg_rate_hist] = convert_spike_time_history_to_avg_rate(spike_times_all_neuron_one_pop)
     all_spikes = horzcat(spike_times_all_neuron_one_pop{:});
     T = max(all_spikes+1000); %Time unit in ms;
     bin_size = 30;
